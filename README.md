@@ -72,7 +72,7 @@
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/AITINERARY.git
+   git clone https://github.com/codersbeyondborders/AITINERARY.git
    ```
 
 2. Navigate to the project directory:
