@@ -1,0 +1,2169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!--
+    Author: Abdul Wajid Parray
+    Version: 1.0.0
+    Date: 2024-11-20
+    Purpose: Demo for Google Photorealistic 3D Maps Challenge
+    Description: AITINERARY is a smart tour itinerary builder 
+                 that transforms travel planning into an immersive 
+                 3D experience by leveraging the Google Maps 
+                 Platform Photorealistic 3D Maps
+-->
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="author" content="Abdul Wajid Parray">
+  <meta name="version" content="1.0.0">
+  <meta name="date" content="2024-11-20">
+  <meta name="description" content="Demo for Google Photorealistic 3D Maps Challenge.">
+
+  <title>AItinerary - your Smart Travel Guide</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    .steps-container {
+      position: relative;
+      height: 250px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .step {
+      position: absolute;
+      width: 100%;
+      top: 0;
+      left: 0;
+      opacity: 0;
+      transform: translateX(100%);
+      transition: all 0.5s ease-in-out;
+    }
+
+    .step.active {
+      opacity: 1;
+      transform: translateX(0);
+      z-index: 10;
+    }
+
+    .step.inactive {
+      opacity: 0;
+      transform: translateX(-100%);
+      z-index: 5;
+    }
+
+    #start-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+
+    #loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      backdrop-filter: blur(10px);
+      display: none;
+    }
+
+    #loading-overlay img {
+      width: 100px;
+      height: 100px;
+    }
+
+
+    .place {
+      background-color: #f3f4f6;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .place:hover {
+      background-color: #c1d4fb;
+    }
+
+    #popup {
+      display: none;
+    }
+
+    #info-popup {
+      display: none;
+    }
+
+    #the-end-popup {
+      display: none;
+    }
+
+    #chevron-icon {
+      transition: transform 0.3s ease;
+    }
+
+    #chevron-icon.up {
+      transform: rotate(180deg);
+    }
+
+    #info-box {
+      position: relative;
+      z-index: 1;
+      width: 400px;
+      margin-top: 15px;
+      margin-left: 15px;
+      background-color: #fff;
+    }
+
+    #info-box-body {
+      max-height: 0;
+      max-width: 400px;
+
+      overflow: scroll;
+      transition: max-height 0.3s ease-out;
+    }
+
+    #info-box-body.expanded {
+      max-height: 480px;
+      transition: max-height 0.5s ease-in;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #map-container {
+      height: 90%;
+      width: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 0;
+      opacity: 1;
+    }
+
+    #display-area {
+      position: relative;
+      z-index: 1;
+      max-width: 400px;
+      max-height: 580px;
+      overflow: hidden;
+      margin-top: 15px;
+      margin-left: 15px;
+    }
+
+    #home-map-container {
+      height: 100%;
+      width: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 0;
+      opacity: 0.95;
+    }
+
+    #main-container {
+      position: relative;
+      z-index: 1;
+      width: 500px;
+      margin: auto 50px 0;
+    }
+
+    .vAygCK-api-load-alpha-banner {
+      display: none;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-200">
+  <div id="home-map-container"></div>
+  <div id="main-container" class="min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-lg bg-white p-6 rounded-lg shadow-lg">
+
+      <div class="items-center mb-10">
+        <a href="index.html" alt="Home"><img class="mx-auto h-auto w-2/3" src="logo.webp" alt="logo" /></a>
+        <p class="text-center border-t-2 border-blue-600 pt-4 text-gray-800 mt-2 mb-4 text-lg font-medium">Your Smart
+          Travel Guide <span class="text-blue-600 text-sm">in 3D</span></p>
+      </div>
+
+      <div id="instructions-container" class="items-left mb-8 bg-gray-100 p-5 rounded-md">
+        <p class="text-black font-normal mb-2">Create Immersive <span class="font-bold">3D Tour</span> Itinerary in
+          <span class="font-bold">3 Simple Steps</span>
+        </p>
+        <ol class="list-decimal mx-4 text-sm">
+          <li class="p-1 m-1 text-blue-600 font-bold"><span class="text-black font-normal">Choose your Favorite
+              City</span></li>
+          <li class="p-1 m-1 text-blue-600 font-bold"><span class="text-black font-normal">Choose Number of Days</span>
+          </li>
+          <li class="p-1 m-1 text-blue-600 font-bold"><span class="text-black font-normal">Take a Virtual 3D Tour</span>
+          </li>
+        </ol>
+      </div>
+
+      <div id="start-container" class="items-center">
+        <p class="text-center text-gray-600 mb-4">Ready for an adventure? Let's start planning!</p>
+        <button class="text-center bg-blue-600 text-white w-1/2 p-2 rounded-lg hover:bg-blue-700"
+          onclick="startTour()">Explore Now!</button>
+      </div>
+
+      <!-- Steps Container -->
+      <div class="steps-container mt-10">
+
+        <!-- Step 1: Choose Destination -->
+        <div id="step-1" class="step active">
+          <p class="text-xs text-blue-600 mb-1">Step 1 of 3</p>
+          <label for="destination" class="block text-gray-700 font-medium mb-2">Where would you like to go?</label>
+          <select id="destination" name="destination" class="w-full border border-gray-300 rounded-lg p-2 mb-4">
+            <option value="Cape Town">Cape Town</option>
+            <option value="Paris">Paris</option>
+            <option value="Rome">Rome</option>
+          </select>
+          <div class="text-center">
+            <button id="storeDestinationAndMove"
+              class="bg-blue-600 hover:bg-blue-700 shadow text-white w-1/2 py-2 rounded-lg">Next</button>
+          </div>
+
+        </div>
+
+        <!-- Step 2: Choose Number of Days -->
+        <div id="step-2" class="step">
+          <p class="text-xs text-blue-600 mb-1">Step 2 of 3</p>
+          <label for="days" class="block text-gray-700 font-medium mb-2">What is your ideal travel timeframe?</label>
+
+          <div class="flex flex-col items-center space-y-6 mt-4">
+
+            <label for="day-slider" class="text-md text-gray-700">
+              <span id="slider-value" class="text-md font-semibold text-blue-600">5 Days</span>
+            </label>
+
+            <div class="w-3/4 flex items-center">
+              <input id="day-slider" type="range" min="1" max="3" step="1" value="2"
+                class="w-full appearance-none h-2 bg-gray-300 rounded-full" oninput="updateSliderLabel(this.value)" />
+              <style>
+                #day-slider::-webkit-slider-thumb {
+                  @apply w-6 h-6 bg-blue-600 rounded-full shadow-md cursor-pointer;
+                }
+
+                #day-slider::-moz-range-thumb {
+                  @apply w-6 h-6 bg-blue-600 rounded-full shadow-md cursor-pointer;
+                }
+              </style>
+            </div>
+
+            <div class="flex justify-between w-3/4 text-gray-600 font-medium">
+              <span
+                class="cursor-pointer font-medium  w-10 h-10 flex items-center justify-center text-white rounded-full bg-blue-600 "
+                onclick="daySlideTo('1')">&lt;5</span>
+              <span
+                class="cursor-pointer font-medium  w-10 h-10 flex items-center justify-center text-white rounded-full bg-blue-600 "
+                onclick="daySlideTo('2')">5</span>
+              <span
+                class="cursor-pointer font-medium  w-10 h-10 flex items-center justify-center text-white rounded-full bg-blue-600 "
+                onclick="daySlideTo('3')">&gt;5</span>
+            </div>
+
+
+
+            <button class="bg-blue-600 hover:bg-blue-700 shadow text-white w-1/2 p-2 rounded-lg"
+              onclick="moveToStep(3)">
+              Next
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 3: Virtual 3D Tour -->
+        <div id="step-3" class="step">
+          <p class="text-xs text-blue-600 mb-1">Step 3 of 3</p>
+          <p id="itinerary-prompt" class="text-gray-600 mb-4">Are you ready to take a virtual 3D tour?</p>
+          <div class="text-center">
+            <button class="bg-blue-600 hover:bg-blue-700 shadow text-white w-1/2 py-2 rounded-lg"
+              onclick="take3dTour()">Lets Go!</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Itinerary Display -->
+      <div id="itinerary" class="hidden mt-6 bg-gray-100 rounded-lg p-4">
+        <h2 class="text-lg font-bold text-gray-800 mb-2">Your Rough Itinerary:</h2>
+        <div id="itinerary-details" class="text-gray-700"></div>
+        <button type="button" id="3dTourBtn"
+          class="mt-6 w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-400 transition">Take a 3D Tour
+          Now</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="" id="map-area">
+
+    <!-- Top Controls -->
+    <div id="top-controls"
+      class="z-40 fixed top-4 right-4 bg-white shadow-lg flex justify-between items-center border-t-2 border-b-2 border-blue-600">
+      <div class="">
+        <button id="shopping" onclick="handleNearbyPlaces('shopping_mall')"
+          class="m-1 text-xs text-gray-800 py-1 px-2 hover:bg-gray-300 hover:rounded-lg">
+          <i class="fas fa-cart-shopping text-blue-600 text-2xl"></i><br />
+          Shopping
+        </button>
+        <button id="food" onclick="handleNearbyPlaces('restaurant')"
+          class="m-1 text-xs text-gray-800 py-1 px-2 hover:bg-gray-300 hover:rounded-lg">
+          <i class="fas fa-utensils text-blue-600 text-2xl"></i><br />Food
+        </button>
+        <button id="transport" onclick="handleNearbyPlaces('bus_station')"
+          class="m-1 text-xs text-gray-800 py-1 px-2 hover:bg-gray-300 hover:rounded-lg">
+          <i class="fas fa-bus text-blue-600 text-2xl"></i><br />Transport
+        </button>
+        <button id="bank" onclick="handleNearbyPlaces('bank')"
+          class="m-1 text-xs text-gray-800 py-1 px-2 hover:bg-gray-300 hover:rounded-lg">
+          <i class="fas fa-building-columns text-blue-600 text-2xl"></i><br />Bank
+        </button>
+      </div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map-container" class=""></div>
+
+    <div id="info-box" class="">
+      <div id="info-box-header"
+        class="flex bg-gray-100 border-b-2 border-blue-600 p-4 cursor-pointer justify-between items-center">
+        <div>
+          <p class="block font-bold text-blue-600 text-lg" id="info-box-content-header-1">Day 1</p>
+          <p class="block font-normal text-xs text-gray-600" id="info-box-content-header-2">(Activity 1)</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <p class="block text-gray-800 font-medium text-lg" id="info-box-content">Select a marker to see details.</p>
+          <span id="chevron-icon" class="transition-transform">
+            <i class="fas fa-chevron-down text-blue-600 text-xl"></i>
+          </span>
+        </div>
+      </div>
+      <div id="info-box-body" class="mt-4 p-4 hidden">
+        <p class="mb-2 text-sm"><span class="font-medium text-blue-600">Place Name:</span> <span id="place-name"></span>
+        </p>
+        <p class="mb-2 text-sm"><span class="font-medium text-blue-600">Address:</span> <span id="place-address"></span>
+        </p>
+        <p class="mb-2 text-sm"><span class="font-medium text-blue-600">Summary:</span> <span id="place-summary"></span>
+        </p>
+        <p class="mb-2 text-sm"><span class="font-medium text-blue-600">Rating:</span> <span id="place-rating"></span>
+        </p>
+        <div id="place-photo-box" class="mt-3">
+          <img id="place-photo" class="h-auto max-w-xs mx-auto rounded-lg m-3" src="" alt="Place Image" />
+          <img id="place-photo-2" class="h-auto max-w-xs mx-auto rounded-lg m-3" src="" alt="Place Image" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Display Area -->
+    <div id="display-area" class="">
+
+      <!-- Results List -->
+      <div id="nearby-places-container" class="mt-4 bg-white bg-opacity-50 shadow-lg rounded-md mx-auto">
+        <div class="flex bg-gray-100 border-b-2 border-blue-600 p-4 mb-4 cursor-pointer justify-between items-center">
+          <h2 id="info-box-content" class="text-lg text-blue-600 font-bold">Our Recommendations:</h2>
+          <button onclick="clearNearbyPlaces()" class="text-blue-600 hover:text-gray-700 text-xl"><i
+              class="fas fa-times text-blue-600 text-xl"></i></button>
+        </div>
+        <ul id="places-list" class="block m-2 p-1"></ul>
+      </div>
+    </div>
+
+
+  </div>
+
+  <!-- Popup Container -->
+  <div id="popup" class="fixed bottom-42 right-4 w-1/3  bg-black bg-opacity-50 flex justify-left items-left">
+    <div class="bg-white rounded-lg shadow-lg p-4">
+
+      <div class="flex justify-between">
+        <h2 id="popup-title" class="text-sm font-bold text-blue-600">Place Title</h2>
+        <button onclick="closePopup()" class="text-blue-600 hover:text-gray-700 text-xl"><i
+            class="fas fa-times text-blue-600 text-xl"></i></button>
+      </div>
+
+      <div id="" class="mt-2">
+        <div id="popup-photo-box" class="mb-4">
+          <img id="popup-photo" class="h-auto max-w-xs mx-auto rounded-lg" src="" alt="Place Image" />
+        </div>
+        <p class="mb-4 text-xs"><span class="font-medium text-blue-600">Address:</span> <span id="popup-address"></span>
+        </p>
+        <p class="mb-4 text-xs"><span class="font-medium text-blue-600">Summary:</span> <span id="popup-summary"></span>
+        </p>
+        <p class="mb-4 text-xs"><span class="font-medium text-blue-600">Rating:</span> <span id="popup-rating"></span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- info-popup -->
+  <div id="info-popup" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+    <div class="bg-white rounded-lg shadow-lg w-3/4 max-w-lg p-6">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-xl font-bold text-blue-600">How to Use</h2>
+        <button onclick="closeInfoPopup()" class="text-blue-600 hover:text-gray-700 text-xl"><i
+            class="fas fa-times text-blue-600 text-xl"></i></button>
+      </div>
+      <ul class="list-disc list-inside space-y-2 mt-4 text-gray-800 text-sm">
+        <li>Use the Previous and Next <strong>Navigation Buttons</strong> to explore the itinerary in immersive 3D.</li>
+        <li>Use your mouse to navigate the 3D map and discover the surrounding areas.</li>
+        <li>A summary of the day's activities will be displayed below as you progress.</li>
+        <li>Click on any <strong>Marker</strong> on the map to learn more about a specific place.</li>
+        <li>Find nearby places like Shopping, Restaurans, Transport and Banks.</li>
+        <li>Use the <strong>Toggle</strong> button to switch labels on or off for a clearer view.</li>
+        <li>A day-wise tracker at the bottom will help you follow your journey step by step.</li>
+      </ul>
+      <div class="mt-4 flex justify-end">
+        <button onclick="closeInfoPopup()" class="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700">
+          Got it!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- The END Popup -->
+  <div id="the-end-popup" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
+    <div class="bg-white rounded-lg shadow-lg w-3/4 max-w-lg">
+      <div class="flex justify-between items-center border-b-2 border-blue-600 bg-gray-200 p-4  mb-4">
+        <h2 class="text-lg font-bold text-blue-600">Your Tour Ends Here!</h2>
+        <button onclick="closeTheEndPopup()" class="text-blue-600 hover:text-blue-700 text-xl"><i
+            class="fas fa-times text-blue-600 text-xl"></i></button>
+      </div>
+      <div class="p-6 text-sm">
+        <p class="mb-2">Thank you for trying AItinerary, your smart 3D Virtual Tour Guide.</p>
+        <p>We hope you enjoyed exploring the world from above!</p>
+        <div class="mt-6 flex justify-end">
+          <button onclick="closeTheEndPopupAndStatOver()"
+            class="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700">
+            Start Over!
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="flex justify-center">
+      <div class="text-center p-10">
+        <p class="text-blue-600 text-xl font-medium mb-4">Preparing your 3D tour...</p>
+        <i class="fas fa-earth text-blue-600 text-8xl animate-spin"></i>
+        <p class="mt-10 text-gray-600 mb-4">Getting Ready in
+          <span class="text-4xl text-blue-600 font-bold" id="countdown"></span>
+          <span> seconds</span>
+        </p>
+      </div>
+
+      <div class="justify-between items-center mb-2 p-10">
+        <h2 class="text-xl font-bold text-blue-600">In the meantime learn how to use</h2>
+        <ul class="list-disc list-inside space-y-2 mt-4 text-gray-800 text-sm">
+          <li>Use the Previous and Next <strong>Navigation Buttons</strong> to explore the itinerary in immersive 3D.
+          </li>
+          <li>Use your mouse to navigate the 3D map and discover the surrounding areas.</li>
+          <li>A summary of the day's activities will be displayed below as you progress.</li>
+          <li>Click on any <strong>Marker</strong> on the map to learn more about a specific place.</li>
+          <li>Find nearby places like Shopping, Restaurans, Transport and Banks.</li>
+          <li>Use the <strong>Toggle</strong> button to switch labels on or off for a clearer view.</li>
+          <li>A day-wise tracker at the bottom will help you follow your journey step by step.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Controls -->
+  <div id="map-controls"
+    class="mt-auto fixed bottom-0 left-0 right-0 bg-gray-200 shadow-lg py-2 flex justify-between items-center px-2">
+
+    <div class="flex items-left">
+      <a href="index.html" title="Home">
+        <img src='logo-sm.webp' alt="logo" class="w-10 h-10 mr-8" />
+      </a>
+      <div id="progressTracker" class="flex justify-center"></div>
+    </div>
+
+    <div class="flex items-right">
+      <button id="prevStep3D" onclick="changeActivity(-1)"
+        class="text-lg mx-4 bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 focus:outline-none">
+        <i class="fas fa-arrow-left text-white text-xl "></i>
+      </button>
+      <p id="" class="">
+      <div>
+        <p id="currentStep3DLabelDay" class="block font-bold text-blue-600 text-2xl">Day 1</p>
+        <p id="currentStep3DLabelActivity" class="block font-normal text-md text-gray-600">(Activity 1)</p>
+      </div>
+      </p>
+      <button id="nextStep3D" onclick="changeActivity(1)"
+        class="text-lg mx-4 bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700 focus:outline-none">
+        <i class="fas fa-arrow-right text-white text-xl"></i>
+      </button>
+
+      <div class="mx-4 flex justify-center items-center">
+        <label class="cursor-pointer flex items-center">
+          <input type="checkbox" value="" class="sr-only peer">
+          <div id="togglePoiBtn3D"
+            class="relative w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600">
+          </div>
+          <span class="ms-3 text-sm font-medium text-gray-800 dark:text-gray-600">Label Switch</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Maps JavaScript API -->
+  <script async defer>
+    (g => {
+      var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document,
+        b = window;
+      b = b[c] || (b[c] = {});
+      var d = b.maps || (b.maps = {}),
+        r = new Set,
+        e = new URLSearchParams,
+        u = () => h || (h = new Promise(async (f, n) => {
+          await (a = m.createElement("script"));
+          e.set("libraries", [...r] + "");
+          for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]);
+          e.set("callback", c + ".maps." + q);
+          a.src = `https://maps.${c}apis.com/maps/api/js?` + e;
+          d[q] = f;
+          a.onerror = () => h = n(Error(p + " could not load."));
+          a.nonce = m.querySelector("script[nonce]")?.nonce || "";
+          m.head.append(a)
+        }));
+      d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n))
+    })({
+      key: "AIzaSyB4rzBDP_y3OWUsCXF48bnqPOGTTRrM718",
+      v: "alpha",
+    });
+  </script>
+
+  <script>
+    let currentStep = 1;
+    const formValues = {};
+    let finalItinerary;
+    let homepage3dMap;
+    let map3DElement;
+    let currentDayStep3D = 1;
+    let currentStep3D = 0;
+    let poiInvisible3D = true;
+    let destinationEntered;
+    let daysEntered = "5";
+    let dayKeys;
+    let currentActivity;
+    let currentDayIndex = 0;
+    let currentActivityIndex = 0;
+    let gallery = document.getElementById("gallery");
+    let expandedImageDiv = document.getElementById("expanded-image");
+    let attributionLabel;
+    let directionLine = null;
+    let tempMarker = null;
+    let cityBounds = null;
+    let cityLat = 0;
+    let cityLng = 0;
+    const daysColors = ["red", "blue", "green", "orange", "purple", "cyan", "magenta"];
+
+    document.getElementById('display-area').classList.add('hidden');
+    document.getElementById('map-controls').classList.add('hidden');
+    document.getElementById('map-area').classList.add('hidden');
+    document.getElementById('top-controls').classList.add('hidden');
+    document.getElementById('storeDestinationAndMove').addEventListener('click', storeDestinationAndMove);
+
+    const dummyItineraryData = {
+      "Cape Town":
+      {
+        "1-3": {
+
+          "1": [
+            {
+              "activity": "Visit Two Oceans Aquarium",
+              "displayName": "Two Oceans Aquarium",
+            },
+            {
+              "activity": "The Cape Wheel",
+              "displayName": "The Cape Wheel",
+            },
+            {
+              "activity": "Visit Robben Island",
+              "displayName": "Robben Island",
+            }
+          ],
+          "2": [
+            {
+              "activity": "Table Mountain",
+              "displayName": "Table Mountain",
+            },
+            {
+              "activity": "Relax at Camps Bay Beach",
+              "displayName": "Camps Bay",
+            }
+          ],
+          "3": [
+            {
+              "activity": "Kirstenbosch National Botanical Garden",
+              "displayName": "Kirstenbosch National Botanical Garden",
+            },
+            {
+              "activity": "Elephant's Eye Cave",
+              "displayName": "Elephant's Eye Cave",
+            }
+
+          ],
+        },
+        "4-5": {
+          "1": [
+            {
+              "activity": "Visit Two Oceans Aquarium",
+              "displayName": "Two Oceans Aquarium"
+            },
+            {
+              "activity": "The Cape Wheel",
+              "displayName": "The Cape Wheel"
+            },
+            {
+              "activity": "Visit Robben Island",
+              "displayName": "Robben Island"
+            }
+          ],
+          "2": [
+            {
+              "activity": "Table Mountain",
+              "displayName": "Table Mountain"
+            },
+            {
+              "activity": "Relax at Camps Bay Beach",
+              "displayName": "Camps Bay"
+            },
+            {
+              "activity": "Hike Lion's Head",
+              "displayName": "Lion's Head"
+            }
+          ],
+          "3": [
+            {
+              "activity": "Kirstenbosch National Botanical Garden",
+              "displayName": "Kirstenbosch National Botanical Garden"
+            },
+            {
+              "activity": "Explore Bo-Kaap Neighborhood",
+              "displayName": "Bo-Kaap"
+            },
+            {
+              "activity": "Visit Groot Constantia Wine Estate",
+              "displayName": "Groot Constantia"
+            }
+          ],
+          "4": [
+            {
+              "activity": "Drive through Chapman's Peak",
+              "displayName": "Chapman's Peak Drive"
+            },
+            {
+              "activity": "Visit Boulders Beach to see penguins",
+              "displayName": "Boulders Beach"
+            },
+            {
+              "activity": "Explore Cape Point",
+              "displayName": "Cape Point"
+            }
+          ],
+          "5": [
+            {
+              "activity": "Stroll through Company's Garden",
+              "displayName": "Company's Garden"
+            },
+            {
+              "activity": "Discover Castle of Good Hope",
+              "displayName": "Castle of Good Hope"
+            },
+            {
+              "activity": "Explore V&A Waterfront",
+              "displayName": "V&A Waterfront"
+            }
+          ]
+        },
+        ">5": {
+          "1": [
+            {
+              "activity": "Visit Two Oceans Aquarium",
+              "displayName": "Two Oceans Aquarium"
+            },
+            {
+              "activity": "The Cape Wheel",
+              "displayName": "The Cape Wheel"
+            },
+            {
+              "activity": "Visit Robben Island",
+              "displayName": "Robben Island"
+            }
+          ],
+          "2": [
+            {
+              "activity": "Table Mountain",
+              "displayName": "Table Mountain"
+            },
+            {
+              "activity": "Relax at Camps Bay Beach",
+              "displayName": "Camps Bay"
+            },
+            {
+              "activity": "Hike Lion's Head",
+              "displayName": "Lion's Head"
+            }
+          ],
+          "3": [
+            {
+              "activity": "Kirstenbosch National Botanical Garden",
+              "displayName": "Kirstenbosch National Botanical Garden"
+            },
+            {
+              "activity": "Explore Bo-Kaap Neighborhood",
+              "displayName": "Bo-Kaap"
+            },
+            {
+              "activity": "Visit Groot Constantia Wine Estate",
+              "displayName": "Groot Constantia"
+            }
+          ],
+          "4": [
+            {
+              "activity": "Drive through Chapman's Peak",
+              "displayName": "Chapman's Peak Drive"
+            },
+            {
+              "activity": "Visit Boulders Beach to see penguins",
+              "displayName": "Boulders Beach"
+            },
+            {
+              "activity": "Explore Cape Point",
+              "displayName": "Cape Point"
+            }
+          ],
+          "5": [
+            {
+              "activity": "Stroll through Company's Garden",
+              "displayName": "Company's Garden"
+            },
+            {
+              "activity": "Discover Castle of Good Hope",
+              "displayName": "Castle of Good Hope"
+            },
+            {
+              "activity": "Explore V&A Waterfront",
+              "displayName": "V&A Waterfront"
+            }
+          ],
+          "6": [
+            {
+              "activity": "Visit Zeitz Museum of Contemporary Art Africa",
+              "displayName": "Zeitz MOCAA"
+            },
+            {
+              "activity": "Take a Helicopter Ride Over Cape Town",
+              "displayName": "Helicopter Ride"
+            },
+            {
+              "activity": "Enjoy Sunset at Signal Hill",
+              "displayName": "Signal Hill"
+            }
+          ],
+          "7": [
+            {
+              "activity": "Explore the Cape Winelands",
+              "displayName": "Stellenbosch and Franschhoek"
+            },
+            {
+              "activity": "Visit the Iziko South African Museum",
+              "displayName": "Iziko South African Museum"
+            },
+            {
+              "activity": "Relax at Clifton Beaches",
+              "displayName": "Clifton Beaches"
+            }
+          ]
+        },
+
+      },
+
+      "Paris": {
+        "1-3": {
+          "1": [
+            {
+              "activity": "Visit the Eiffel Tower",
+              "displayName": "Eiffel Tower"
+            },
+            {
+              "activity": "Stroll along Champ de Mars",
+              "displayName": "Champ de Mars"
+            },
+            {
+              "activity": "Cruise on the Seine River",
+              "displayName": "Seine River"
+            }
+          ],
+          "2": [
+            {
+              "activity": "Explore the Louvre Museum",
+              "displayName": "Louvre Museum"
+            },
+            {
+              "activity": "Walk through Jardin des Tuileries",
+              "displayName": "Jardin des Tuileries"
+            },
+            {
+              "activity": "Discover Montmartre and Sacré-Cœur Basilica",
+              "displayName": "Sacré-Cœur Basilica"
+            }
+          ],
+          "3": [
+            {
+              "activity": "Visit Notre-Dame Cathedral",
+              "displayName": "Notre-Dame Cathedral"
+            },
+            {
+              "activity": "Explore the Latin Quarter",
+              "displayName": "Latin Quarter"
+            },
+            {
+              "activity": "Enjoy a view from Arc de Triomphe",
+              "displayName": "Arc de Triomphe"
+            }
+          ]
+        },
+        "4-5": {
+          "1": [
+            {
+              "activity": "Visit the Eiffel Tower",
+              "displayName": "Eiffel Tower"
+            },
+            {
+              "activity": "Stroll along Champ de Mars",
+              "displayName": "Champ de Mars"
+            },
+            {
+              "activity": "Cruise on the Seine River",
+              "displayName": "Seine River"
+            }
+          ],
+          "2": [
+            {
+              "activity": "Explore the Louvre Museum",
+              "displayName": "Louvre Museum"
+            },
+            {
+              "activity": "Walk through Jardin des Tuileries",
+              "displayName": "Jardin des Tuileries"
+            },
+            {
+              "activity": "Discover Montmartre and Sacré-Cœur Basilica",
+              "displayName": "Sacré-Cœur Basilica"
+            }
+          ],
+          "3": [
+            {
+              "activity": "Visit Notre-Dame Cathedral",
+              "displayName": "Notre-Dame Cathedral"
+            },
+            {
+              "activity": "Explore the Latin Quarter",
+              "displayName": "Latin Quarter"
+            },
+            {
+              "activity": "Enjoy a view from Arc de Triomphe",
+              "displayName": "Arc de Triomphe"
+            }
+          ],
+          "4": [
+            {
+              "activity": "Spend a day at Palace of Versailles",
+              "displayName": "Palace of Versailles"
+            },
+            {
+              "activity": "Relax at Parc des Buttes-Chaumont",
+              "displayName": "Parc des Buttes-Chaumont"
+            },
+            {
+              "activity": "Visit the Petit Palais and Grand Palais",
+              "displayName": "Petit Palais and Grand Palais"
+            }
+          ],
+          "5": [
+            {
+              "activity": "Explore the Marais District",
+              "displayName": "Marais District"
+            },
+            {
+              "activity": "Shop along Champs-Élysées",
+              "displayName": "Champs-Élysées"
+            },
+            {
+              "activity": "Visit the Rodin Museum",
+              "displayName": "Rodin Museum"
+            }
+          ]
+        },
+        ">5": {
+          "1": [
+            {
+              "activity": "Visit the Eiffel Tower",
+              "displayName": "Eiffel Tower"
+            },
+            {
+              "activity": "Stroll along Champ de Mars",
+              "displayName": "Champ de Mars"
+            },
+            {
+              "activity": "Cruise on the Seine River",
+              "displayName": "Seine River"
+            }
+          ],
+          "2": [
+            {
+              "activity": "Explore the Louvre Museum",
+              "displayName": "Louvre Museum"
+            },
+            {
+              "activity": "Walk through Jardin des Tuileries",
+              "displayName": "Jardin des Tuileries"
+            },
+            {
+              "activity": "Discover Montmartre and Sacré-Cœur Basilica",
+              "displayName": "Sacré-Cœur Basilica"
+            }
+          ],
+          "3": [
+            {
+              "activity": "Visit Notre-Dame Cathedral",
+              "displayName": "Notre-Dame Cathedral"
+            },
+            {
+              "activity": "Explore the Latin Quarter",
+              "displayName": "Latin Quarter"
+            },
+            {
+              "activity": "Enjoy a view from Arc de Triomphe",
+              "displayName": "Arc de Triomphe"
+            }
+          ],
+          "4": [
+            {
+              "activity": "Spend a day at Palace of Versailles",
+              "displayName": "Palace of Versailles"
+            },
+            {
+              "activity": "Relax at Parc des Buttes-Chaumont",
+              "displayName": "Parc des Buttes-Chaumont"
+            },
+            {
+              "activity": "Visit the Petit Palais and Grand Palais",
+              "displayName": "Petit Palais and Grand Palais"
+            }
+          ],
+          "5": [
+            {
+              "activity": "Explore the Marais District",
+              "displayName": "Marais District"
+            },
+            {
+              "activity": "Shop along Champs-Élysées",
+              "displayName": "Champs-Élysées"
+            },
+            {
+              "activity": "Visit the Rodin Museum",
+              "displayName": "Rodin Museum"
+            }
+          ],
+          "6": [
+            {
+              "activity": "Visit the Catacombs of Paris",
+              "displayName": "Paris Catacombs"
+            },
+            {
+              "activity": "Admire the Opera Garnier",
+              "displayName": "Opera Garnier"
+            },
+            {
+              "activity": "Relax at Bois de Boulogne",
+              "displayName": "Bois de Boulogne"
+            }
+          ],
+          "7": [
+            {
+              "activity": "Explore Père Lachaise Cemetery",
+              "displayName": "Père Lachaise Cemetery"
+            },
+            {
+              "activity": "Visit the Musée d'Orsay",
+              "displayName": "Musée d'Orsay"
+            },
+            {
+              "activity": "Relax at Canal Saint-Martin",
+              "displayName": "Canal Saint-Martin"
+            }
+          ]
+        }
+      },
+      "Rome": {
+        "1-3": {
+          "1": [
+            {
+              "activity": "Visit the Colosseum",
+              "displayName": "Colosseum"
+            },
+            {
+              "activity": "Explore Roman Forum",
+              "displayName": "Roman Forum"
+            },
+            {
+              "activity": "Walk through Piazza Venezia",
+              "displayName": "Piazza Venezia"
+            }
+          ],
+          "2": [
+            {
+              "activity": "Visit the Vatican Museums",
+              "displayName": "Vatican Museums"
+            },
+            {
+              "activity": "Admire the Sistine Chapel",
+              "displayName": "Sistine Chapel"
+            },
+            {
+              "activity": "Explore St. Peter's Basilica",
+              "displayName": "St. Peter's Basilica"
+            }
+          ],
+          "3": [
+            {
+              "activity": "Throw a coin in the Trevi Fountain",
+              "displayName": "Trevi Fountain"
+            },
+            {
+              "activity": "Relax at Piazza Navona",
+              "displayName": "Piazza Navona"
+            },
+            {
+              "activity": "Visit the Pantheon",
+              "displayName": "Pantheon"
+            }
+          ]
+        },
+        "4-5": {
+          "1": [
+            {
+              "activity": "Visit the Colosseum",
+              "displayName": "Colosseum"
+            },
+            {
+              "activity": "Explore Roman Forum",
+              "displayName": "Roman Forum"
+            },
+            {
+              "activity": "Walk through Piazza Venezia",
+              "displayName": "Piazza Venezia"
+            }
+          ],
+          "2": [
+            {
+              "activity": "Visit the Vatican Museums",
+              "displayName": "Vatican Museums"
+            },
+            {
+              "activity": "Admire the Sistine Chapel",
+              "displayName": "Sistine Chapel"
+            },
+            {
+              "activity": "Explore St. Peter's Basilica",
+              "displayName": "St. Peter's Basilica"
+            }
+          ],
+          "3": [
+            {
+              "activity": "Throw a coin in the Trevi Fountain",
+              "displayName": "Trevi Fountain"
+            },
+            {
+              "activity": "Relax at Piazza Navona",
+              "displayName": "Piazza Navona"
+            },
+            {
+              "activity": "Visit the Pantheon",
+              "displayName": "Pantheon"
+            }
+          ],
+          "4": [
+            {
+              "activity": "Take a day trip to Villa d'Este in Tivoli",
+              "displayName": "Villa d'Este"
+            },
+            {
+              "activity": "Visit Capitoline Museums",
+              "displayName": "Capitoline Museums"
+            },
+            {
+              "activity": "Stroll through Trastevere neighborhood",
+              "displayName": "Trastevere"
+            }
+          ],
+          "5": [
+            {
+              "activity": "Visit Castel Sant'Angelo",
+              "displayName": "Castel Sant'Angelo"
+            },
+            {
+              "activity": "Shop along Via del Corso",
+              "displayName": "Via del Corso"
+            },
+            {
+              "activity": "Relax at Villa Borghese Gardens",
+              "displayName": "Villa Borghese"
+            }
+          ]
+        },
+        ">5": {
+          "1": [
+            {
+              "activity": "Visit the Colosseum",
+              "displayName": "Colosseum"
+            },
+            {
+              "activity": "Explore Roman Forum",
+              "displayName": "Roman Forum"
+            },
+            {
+              "activity": "Walk through Piazza Venezia",
+              "displayName": "Piazza Venezia"
+            }
+          ],
+          "2": [
+            {
+              "activity": "Visit the Vatican Museums",
+              "displayName": "Vatican Museums"
+            },
+            {
+              "activity": "Admire the Sistine Chapel",
+              "displayName": "Sistine Chapel"
+            },
+            {
+              "activity": "Explore St. Peter's Basilica",
+              "displayName": "St. Peter's Basilica"
+            }
+          ],
+          "3": [
+            {
+              "activity": "Throw a coin in the Trevi Fountain",
+              "displayName": "Trevi Fountain"
+            },
+            {
+              "activity": "Relax at Piazza Navona",
+              "displayName": "Piazza Navona"
+            },
+            {
+              "activity": "Visit the Pantheon",
+              "displayName": "Pantheon"
+            }
+          ],
+          "4": [
+            {
+              "activity": "Take a day trip to Villa d'Este in Tivoli",
+              "displayName": "Villa d'Este"
+            },
+            {
+              "activity": "Visit Capitoline Museums",
+              "displayName": "Capitoline Museums"
+            },
+            {
+              "activity": "Stroll through Trastevere neighborhood",
+              "displayName": "Trastevere"
+            }
+          ],
+          "5": [
+            {
+              "activity": "Visit Castel Sant'Angelo",
+              "displayName": "Castel Sant'Angelo"
+            },
+            {
+              "activity": "Shop along Via del Corso",
+              "displayName": "Via del Corso"
+            },
+            {
+              "activity": "Relax at Villa Borghese Gardens",
+              "displayName": "Villa Borghese"
+            }
+          ],
+          "6": [
+            {
+              "activity": "Visit Baths of Caracalla",
+              "displayName": "Baths of Caracalla"
+            },
+            {
+              "activity": "Explore Aventine Hill and Keyhole",
+              "displayName": "Aventine Keyhole"
+            },
+            {
+              "activity": "Relax at Piazza del Popolo",
+              "displayName": "Piazza del Popolo"
+            }
+          ],
+          "7": [
+            {
+              "activity": "Take a food tour through Testaccio",
+              "displayName": "Testaccio"
+            },
+            {
+              "activity": "Visit Santa Maria Maggiore Basilica",
+              "displayName": "Santa Maria Maggiore"
+            },
+            {
+              "activity": "Explore the Galleria Borghese",
+              "displayName": "Galleria Borghese"
+            }
+          ]
+        }
+      }
+
+
+    };
+
+    function startTour() {
+      // Hide Instructions and start container
+      document.getElementById('start-container').style.display = 'none';
+      document.getElementById('instructions-container').style.display = 'none';
+
+      // Show steps container
+      document.querySelector('.steps-container').style.display = 'block';
+    }
+
+    function moveToStep(step) {
+      // Hide current step
+      document.getElementById(`step-${currentStep}`).classList.remove('active');
+      document.getElementById(`step-${currentStep}`).classList.add('inactive');
+
+      // Show the next step
+      document.getElementById(`step-${step}`).classList.remove('inactive');
+      document.getElementById(`step-${step}`).classList.add('active');
+
+      currentStep = step; // Update current step
+
+      if (step === 3)
+        displayPrompt();
+    }
+
+    function storeDestinationAndMove() {
+      destinationEntered = document.getElementById('destination').value;
+      if (destinationEntered.trim() !== "") {
+        flyCameraToHomepage(destinationEntered.trim());
+        moveToStep(2);
+      }
+    }
+
+    function daySlideTo(value) {
+
+      document.getElementById("day-slider").value = value;
+      updateSliderLabel(value);
+    }
+
+    function updateSliderLabel(value) {
+
+      const label = document.getElementById("slider-value");
+      switch (value) {
+        case "1": {
+          label.textContent = "Less Than 5 Days";
+          daysEntered = "<5";
+          break;
+        } case "2": {
+          label.textContent = "5 Days";
+          daysEntered = "5";
+          break;
+        } case "3": {
+          label.textContent = "More Than 5 Days";
+          daysEntered = ">5";
+          break;
+        } default: {
+          label.textContent = "Invalid Selection";
+          daysEntered = "5";
+        }
+      }
+    }
+
+    function displayPrompt() {
+      document.getElementById('itinerary-prompt').innerHTML = `Are you ready for a virtual 3D tour to <span class="font-bold">${destinationEntered}</span>?`;
+    }
+
+    function transformObject(object1) {
+
+      const emptyTemplate = {
+        activity: "",
+        displayName: "",
+        placeId: "",
+        formattedAddress: "",
+        editorialSummary: "",
+        rating: 0,
+        photos: [],
+        coordinates: {
+          lat: 0,
+          lng: 0,
+          altitude: 100
+        },
+        elevation: 0,
+        viewport: {}
+      };
+
+      const object2 = {};
+
+      for (const key in object1) {
+        if (object1.hasOwnProperty(key)) {
+          object2[key] = object1[key].map(() => ({ ...emptyTemplate }));
+        }
+      }
+
+      return object2;
+    }
+
+    function getItinerary() {
+
+      const itinerary = dummyItineraryData[destinationEntered];
+      let selectedItinerary = {};
+
+      if (daysEntered === "<5") {
+        selectedItinerary = itinerary["1-3"] || {};
+      } else if (daysEntered === "5") {
+        selectedItinerary = itinerary["4-5"] || {};
+      } else {
+        selectedItinerary = itinerary[">5"] || {};
+      }
+      return selectedItinerary;
+    }
+
+    //TODO: Use AI to get the Itinerary based on Days and Destination
+    async function prepareItinerary() {
+      const itinerary = getItinerary();
+      const newItinerary = transformObject(itinerary);
+      console.log('newItinerary BEFORE = ', newItinerary);
+
+      for (const day of Object.keys(itinerary)) {
+        for (let thisActivityIndex = 0; thisActivityIndex < itinerary[day].length; thisActivityIndex++) {
+          const thisActivity = itinerary[day][thisActivityIndex];
+
+          try {
+            const thisPlace = await searchPlaceByName(thisActivity.displayName);
+            const thisLocation = thisPlace.location.toJSON();
+            const placeLat = thisLocation.lat;
+            const placeLng = thisLocation.lng;
+            const elevator = new google.maps.ElevationService();
+            let thisPlaceElevation = 0;
+
+            await elevator.getElevationForLocations({
+              locations: [thisLocation],
+            }, (elevatorResults) => {
+              console.log('elevatorResults = ', elevatorResults);
+              if (elevatorResults && elevatorResults.length && elevatorResults[0] && elevatorResults[0].elevation) {
+                thisPlaceElevation = elevatorResults[0].elevation;
+                console.log('thisPlaceElevation = ', thisPlaceElevation);
+              }
+            });
+
+            const tempActivity = {
+              activity: thisPlace.displayName,
+              displayName: thisPlace.displayName,
+              placeId: thisPlace.id,
+              formattedAddress: thisPlace.formattedAddress,
+              editorialSummary: thisPlace.editorialSummary,
+              rating: thisPlace.rating,
+              photos: thisPlace.photos || [],
+              coordinates: {
+                lat: placeLat,
+                lng: placeLng,
+                altitude: 100
+              },
+              elevation: thisPlaceElevation,
+              viewport: thisPlace.viewport
+            };
+
+            newItinerary[day][thisActivityIndex] = tempActivity;
+          } catch (error) {
+            console.error(`Failed to fetch place details for ${thisActivity.placeId}:`, error);
+          }
+        }
+      }
+      return newItinerary;
+    }
+
+    async function loadActivity(hasDayEnded) {
+      const dayKey = dayKeys[currentDayIndex];
+      const activities = finalItinerary[dayKey];
+      currentActivity = activities[currentActivityIndex];
+      document.getElementById('prevStep3D').disabled = currentDayIndex === 0 && currentActivityIndex === 0;
+      document.getElementById('nextStep3D').disabled = currentDayIndex >= dayKeys.length - 1 && currentActivityIndex >= activities.length - 1;
+      updateItineraryStep3D(hasDayEnded);
+      if (currentDayIndex >= dayKeys.length - 1 && currentActivityIndex >= activities.length - 1) {
+        setTimeout(() => {
+          theEnd();
+        }, 6000);
+        return;
+      }
+    }
+
+    function generateProgressTracker(totalSteps, activeStep) {
+      const trackerContainer = document.getElementById('progressTracker');
+      trackerContainer.innerHTML = ''; // Clear any existing content
+
+      const tailwindColors = [
+        "bg-red-500",     // Red
+        "bg-blue-500",    // Blue
+        "bg-green-500",   // Green
+        "bg-blue-500",    // Blue
+        "bg-purple-500",  // Purple
+        "bg-cyan-500",    // Cyan
+        "bg-pink-500"     // Magenta (closest in Tailwind is pink)
+      ];
+
+      for (let i = 1; i <= totalSteps; i++) {
+        // Create the step circle
+        const stepCircle = document.createElement('div');
+        stepCircle.className = `w-10 h-10 flex items-center justify-center text-white rounded-full cursor-pointer ${i <= activeStep ? 'bg-blue-600' : 'bg-gray-600'} `;
+        stepCircle.textContent = i;
+
+        // Add click event to navigate to the specific day
+        stepCircle.addEventListener('click', () => {
+          navigateToDay(i - 1); // Adjusting index (0-based for day array)
+        });
+
+        // Create the step container
+        const stepContainer = document.createElement('div');
+        stepContainer.className = 'flex items-center';
+        stepContainer.appendChild(stepCircle);
+
+        // Add the line after all but the last circle
+        if (i < totalSteps) {
+          const stepLine = document.createElement('div');
+          stepLine.className = 'w-12 border-t-2 border-gray-400';
+          stepContainer.appendChild(stepLine);
+        }
+
+        trackerContainer.appendChild(stepContainer);
+      }
+    }
+
+    function navigateToDay(dayIndex) {
+      // Update the currentDayIndex and reset the activity index
+      currentDayIndex = dayIndex;
+      currentActivityIndex = 0;
+
+      // Load the first activity of the selected day
+      loadActivity();
+
+      // Update the progress tracker to highlight the selected day
+      generateProgressTracker(dayKeys.length, currentDayIndex + 1);
+
+      console.log(`Navigated to Day ${dayIndex + 1}`);
+    }
+
+    async function take3dTour() {
+      document.getElementById('home-map-container').style.display = 'none';
+      document.getElementById('loading-overlay').style.display = 'flex';
+      clearNearbyPlaces();
+
+      let timeout = 5000;
+
+
+
+      if (daysEntered === "<5") {
+        timeout = 7000;
+      } else if (daysEntered === "5") {
+        timeout = 10000;
+      } else {
+        timeout = 14000;
+      }
+
+      let countdown = timeout / 1000;
+
+      // Start countdown
+      const countdownInterval = setInterval(() => {
+        countdown--;
+        document.getElementById("countdown").textContent = countdown;
+
+        if (countdown <= 0) {
+          clearInterval(countdownInterval); // Stop countdown when it reaches 0
+        }
+      }, 1000);
+
+      setTimeout(() => {
+        document.getElementById('loading-overlay').style.display = 'none';
+      }, timeout);
+
+      //Prepare Itinerary based on Destination and Days Chosen
+      finalItinerary = await prepareItinerary();
+      console.log('finalItinerary = ', finalItinerary);
+
+      dayKeys = Object.keys(finalItinerary);
+      const dayKey = dayKeys[currentDayIndex];
+      const activities = finalItinerary[dayKey];
+      currentActivity = activities[currentActivityIndex];
+
+      document.getElementById('top-controls').classList.remove('hidden');
+      document.getElementById('map-area').classList.remove('hidden');
+      document.getElementById('map-controls').classList.remove('hidden');
+      document.getElementById('main-container').classList.add('hidden');
+
+      const { Map3DElement, Marker3DElement, Polyline3DElement, AltitudeMode } = await google.maps.importLibrary("maps3d");
+      map3DElement = new Map3DElement({
+        center: currentActivity.coordinates,
+        range: 500,
+        tilt: 60,
+        defaultUIDisabled: false
+      });
+      map3DElement.defaultLabelsDisabled = poiInvisible3D;
+      document.getElementById('map-container').appendChild(map3DElement);
+
+      map3DElement.addEventListener('gmp-click', async (event) => {
+        console.log('CLICKED', event);
+        stopFlyCamera();
+        document.getElementById('info-box-body').classList.add('hidden');
+
+        if (event.placeId) {
+          const place = await event.fetchPlace();
+          await place.fetchFields({
+            fields: ["displayName", "formattedAddress", "location", "photos", "editorialSummary", "rating"],
+          });
+          if (place.displayName && place.formattedAddress && place.location && place.editorialSummary && place.photos) {
+            showPlaceInfo(place);
+          }
+        }
+      });
+
+      generateProgressTracker(dayKeys.length, currentDayIndex + 1);
+      document.getElementById('prevStep3D').disabled = currentDayIndex === 0 && currentActivityIndex === 0;
+      document.getElementById('nextStep3D').disabled = currentDayIndex === dayKeys.length - 1 && currentActivityIndex === activities.length - 1;
+      updateItineraryStep3D();
+      document.getElementById("togglePoiBtn3D").addEventListener("click", togglePOI3D);
+      showInfoPopup();
+
+    }
+
+    function changeActivity(step) {
+      closeTheEndPopup();
+      closePopup();
+      clearNearbyPlaces();
+      let hasDayEnded = false;
+      const activities = finalItinerary[dayKeys[currentDayIndex]];
+      currentActivityIndex += step;
+
+      if (currentActivityIndex < 0) {
+        if (currentDayIndex > 0) {
+          currentDayIndex--;
+          currentActivityIndex = finalItinerary[dayKeys[currentDayIndex]].length - 1;
+        }
+      } else if (currentActivityIndex >= activities.length) {
+        if (currentDayIndex < dayKeys.length - 1) {
+          console.log(`End of Day - ${currentDayIndex + 1}`);
+          hasDayEnded = true;
+          currentDayIndex++;
+          currentActivityIndex = 0;
+        }
+      }
+      generateProgressTracker(dayKeys.length, currentDayIndex + 1);
+      loadActivity(hasDayEnded);
+    }
+
+    async function updateItineraryStep3D(hasDayEnded = false) {
+      document.getElementById('display-area').classList.remove('hidden');
+      document.getElementById('info-box').style.display = 'block';
+      const flyToCamera = {
+        center: currentActivity.coordinates,
+        tilt: 25,
+        range: (currentActivity.elevation * 10)
+      };
+
+      map3DElement.flyCameraTo({
+        endCamera: flyToCamera,
+        durationMillis: 5000,
+      });
+
+      map3DElement.addEventListener('gmp-animationend', () => {
+        map3DElement.flyCameraAround({
+          camera: flyToCamera,
+          durationMillis: 50000,
+          rounds: 1
+        });
+      }, { once: true });
+
+      drawMarkers();
+      drawClosedPolylinesForDays();
+
+      map3DElement.addEventListener('gmp-click', async (event) => {
+        console.log('CLICKED', event);
+        stopFlyCamera();
+        document.getElementById('info-box-body').classList.add('hidden');
+
+        if (event.placeId) {
+          const place = await event.fetchPlace();
+          await place.fetchFields({
+            fields: ["displayName", "formattedAddress", "location", "photos", "editorialSummary", "rating"],
+          });
+          if (place.displayName && place.formattedAddress && place.location && place.editorialSummary && place.photos) {
+            showPlaceInfo(place);
+          }
+        }
+      });
+
+      if (hasDayEnded) {
+        //display hotels for night stay
+        console.log('Display hotels for night stay');
+        document.getElementById('info-box-body').classList.add('hidden');
+        const hotel = await returnNearbyHotel(currentActivity.coordinates.lat, currentActivity.coordinates.lng);
+        if (hotel && hotel.displayName && hotel.formattedAddress && hotel.location && hotel.editorialSummary && hotel.photos) {
+          showHotelInfo(hotel);
+        }
+      }
+
+
+      displayPlaceDetails(currentActivity);
+      document.getElementById("info-box").style.display = "block";
+      document.getElementById("info-box-content-header-1").innerText = `Day-${currentDayIndex + 1}`;
+      document.getElementById("info-box-content-header-2").innerText = `(Activity-${currentActivityIndex + 1})`;
+      document.getElementById("currentStep3DLabelDay").innerText = `Day ${currentDayIndex + 1}`;
+      document.getElementById("currentStep3DLabelActivity").innerText = `(Activity ${currentActivityIndex + 1})`;
+      document.getElementById("info-box-content").innerText = currentActivity.activity;
+    }
+
+    async function stopFlyCamera() {
+      map3DElement.stopCameraAnimation();
+    }
+
+    async function drawMarkers() {
+      const { PinElement } = await google.maps.importLibrary("marker");
+      Object.keys(finalItinerary).forEach(async (day, thisDayIndex) => {
+        finalItinerary[day].forEach(async (thisActivity, thisActivityIndex) => {
+          const markerColor = daysColors[thisDayIndex % daysColors.length];
+
+          const pinBackground = new PinElement({
+            background: markerColor,
+          });
+          const interactiveMarker = new google.maps.maps3d.Marker3DInteractiveElement({
+            position: thisActivity.coordinates,
+            label: thisActivity.displayName,
+            altitudeMode: 'RELATIVE_TO_GROUND',
+            extruded: true
+          });
+          interactiveMarker.append(pinBackground);
+          interactiveMarker.addEventListener('gmp-click', (event) => {
+            const markerPosition = event.target.position;
+            onMarkerClick(thisActivity);
+          });
+          map3DElement.append(interactiveMarker);
+        });
+      });
+    }
+
+    // Function to draw closed polylines for each day's activities with different colors
+    async function drawClosedPolylinesForDays() {
+      const { PinElement } = await google.maps.importLibrary("marker");
+      const colors = ["red", "blue", "green", "orange", "purple", "cyan", "magenta"]; // Different colors for each day
+
+      // Loop through each day in the data
+      Object.keys(finalItinerary).forEach((day, index) => {
+        let coordinates = finalItinerary[day].map(activity => ({
+          lat: activity.coordinates.lat,
+          lng: activity.coordinates.lng,
+          altitude: activity.coordinates.altitude
+        }));
+
+        // Ensure the path comes back to the starting point
+        if (coordinates.length > 1) {
+          coordinates.push(coordinates[0]); // Close the loop
+        }
+
+        // Set the polyline options with a unique color for each day
+        const polylineOptions = {
+          strokeColor: daysColors[index % daysColors.length], // Cycle through the colors if more than 7 days
+          strokeWidth: 8,
+          altitudeMode: "CLAMP_TO_GROUND",//ABSOLUTE,CLAMP_TO_GROUND , RELATIVE_TO_GROUND
+          extruded: true,
+          zIndex: 50
+        };
+
+        // Create a polyline for the day's activities
+        const polyline = new google.maps.maps3d.Polygon3DElement(polylineOptions);
+        polyline.outerCoordinates = coordinates;
+
+        // Append the polyline to the map
+        map3DElement.append(polyline);
+
+        const pinScaled = new PinElement({
+          scale: 2,
+          background: daysColors[index % daysColors.length],
+          borderColor: daysColors[index % daysColors.length],
+          glyph: `${day}`,
+          glyphColor: 'white',
+        });
+
+        const polygonCenter = calculatePolygonCenter(coordinates);
+        const centerMarker = new google.maps.maps3d.Marker3DElement({
+          position: polygonCenter,
+          label: `DAY`,
+          altitudeMode: 'RELATIVE_TO_GROUND',
+          extruded: true,
+
+        });
+        centerMarker.append(pinScaled);
+        map3DElement.append(centerMarker);
+      });
+    }
+
+    function calculatePolygonCenter(polygonCoords) {
+      let sumLat = 0;
+      let sumLng = 0;
+
+      for (const coord of polygonCoords) {
+        sumLat += coord.lat;
+        sumLng += coord.lng;
+      }
+      const centerLat = sumLat / polygonCoords.length;
+      const centerLng = sumLng / polygonCoords.length;
+      return { lat: centerLat, lng: centerLng };
+    }
+
+    function togglePOI3D() {
+      closeTheEndPopup();
+      poiInvisible3D = !poiInvisible3D;
+      map3DElement.defaultLabelsDisabled = poiInvisible3D;
+    }
+
+    function theEnd() {
+      showTheEndPopup();
+    }
+
+    function showTheEndPopup() {
+      document.getElementById('the-end-popup').style.display = 'flex';
+    }
+
+    function closeTheEndPopup() {
+      document.getElementById('the-end-popup').style.display = 'none';
+    }
+
+    function closeTheEndPopupAndStatOver() {
+      document.getElementById('the-end-popup').style.display = 'none';
+      location.reload();
+    }
+
+    function showInfoPopup() {
+      document.getElementById('info-popup').style.display = 'flex';
+    }
+
+    function closeInfoPopup() {
+      document.getElementById('info-popup').style.display = 'none';
+    }
+
+    async function searchPlaceByName(placeName) {
+      const { Place } = await google.maps.importLibrary("places");
+
+      const request = {
+        textQuery: placeName,
+        fields: ["id", "displayName", "formattedAddress", "location", "photos", "editorialSummary", "viewport"],
+        //includedType: "cultural_landmark",
+        //locationRestriction: { lat: countryLat, lng: countryLng },
+        locationBias: { lat: cityLat, lng: cityLng },
+        language: "en-US",
+        maxResultCount: 1,
+        region: "us",
+        //useStrictTypeFiltering: true,
+      };
+      //@ts-ignore
+      const { places } = await Place.searchByText(request);
+      return places[0];
+    }
+
+    async function fetchPlaceDetails(placeId) {
+      const { Place } = await google.maps.importLibrary("places");
+      const place = new Place({
+        id: placeId,
+        requestedLanguage: "en",
+      });
+      // Call fetchFields, passing the desired data fields.
+      await place.fetchFields({
+        fields: ["displayName", "formattedAddress", "location", "photos", "editorialSummary", "viewport"],
+      });
+      return place;
+    }
+
+    // Helper function to create attribution DIV.
+    function createAttribution(attribution) {
+      attributionLabel = document.createElement("a");
+      attributionLabel.classList.add("attribution-label");
+      attributionLabel.textContent = attribution[0].displayName;
+      attributionLabel.href = attribution[0].uri;
+      attributionLabel.target = "_blank;";
+      return attributionLabel;
+    }
+
+    function displayPlaceDetails(currentActivity) {
+      document.getElementById('place-name').innerText = currentActivity.displayName;
+      document.getElementById('place-address').innerText = currentActivity.formattedAddress;
+      document.getElementById('place-summary').innerText = currentActivity.editorialSummary || 'N/A';
+
+      (currentActivity.rating ? document.getElementById('place-rating').innerText = currentActivity.rating + ' stars' : document.getElementById('place-rating').innerText = 'N/A')
+
+      if (currentActivity.photos) {
+        const placePhoto = currentActivity.photos[0];
+        document.getElementById('place-photo').src = placePhoto.getURI({ maxHeight: 380 });
+
+        const placePhoto2 = currentActivity.photos[1];
+        document.getElementById('place-photo-2').src = placePhoto2.getURI({ maxHeight: 380 });
+      }
+    }
+
+
+    function showHotelInfo(hotel) {
+      //TODO zoom to hotel and add reviews, possibly 360 view
+
+      document.getElementById('popup-title').textContent = `End of the Day: Stay at ${hotel.displayName}`;
+      document.getElementById('popup-summary').textContent = hotel.editorialSummary || 'N/A';
+      document.getElementById('popup-address').textContent = hotel.formattedAddress;
+
+      (hotel.rating ? document.getElementById('popup-rating').innerText = hotel.rating + ' stars' : document.getElementById('popup-rating').innerText = 'N/A')
+
+
+      if (hotel.photos) {
+        const hotelPhoto = hotel.photos[0];
+        document.getElementById('popup-photo').src = hotelPhoto.getURI({ maxHeight: 380 });
+      }
+
+      document.getElementById('popup').style.display = 'flex';
+    }
+
+    function showPlaceInfo(place) {
+      document.getElementById('popup-title').textContent = place.displayName;
+      document.getElementById('popup-summary').textContent = place.editorialSummary || 'N/A';
+      document.getElementById('popup-address').textContent = place.formattedAddress;
+
+      (place.rating ? document.getElementById('popup-rating').innerText = place.rating + ' stars' : document.getElementById('popup-rating').innerText = 'N/A')
+      if (place.photos) {
+        const placePhoto = place.photos[0];
+        document.getElementById('popup-photo').src = placePhoto.getURI({ maxHeight: 380 });
+      }
+      document.getElementById('popup').style.display = 'flex';
+    }
+
+    async function onMarkerClick(thisActivity) {
+      document.getElementById('popup-title').textContent = thisActivity.displayName;
+      document.getElementById('popup-summary').textContent = thisActivity.editorialSummary || 'N/A';
+      document.getElementById('popup-address').textContent = thisActivity.formattedAddress;
+
+      (thisActivity.rating ? document.getElementById('popup-rating').innerText = thisActivity.rating + ' stars' : document.getElementById('popup-rating').innerText = 'N/A')
+
+      if (thisActivity.photos) {
+        const placePhoto = thisActivity.photos[0];
+        document.getElementById('popup-photo').src = placePhoto.getURI({ maxHeight: 380 });
+      }
+      document.getElementById('popup').style.display = 'flex';
+    }
+
+    // Close popup function
+    function closePopup() {
+      document.getElementById('popup').style.display = 'none';
+    }
+
+    async function handleNearbyPlaces(selectedCategory) {
+      closeTheEndPopup();
+      // Get all buttons and the clicked button
+      const buttons = document.querySelectorAll('#top-controls button');
+      const activeButton = document.querySelector(`#top-controls button[onclick*="${selectedCategory}"]`);
+
+      // Check if the clicked button is already active
+      const isActive = activeButton.classList.contains('bg-gray-300');
+
+      // Reset all buttons to inactive state
+      buttons.forEach(button => {
+        button.classList.remove('bg-gray-300');
+      });
+
+      // Toggle the clicked button's state
+      if (!isActive) {
+        activeButton.classList.add('bg-gray-300');
+        await fetchNearbyPlaces(currentActivity.coordinates.lat, currentActivity.coordinates.lng, selectedCategory);
+      } else {
+        clearNearbyPlaces();
+      }
+    }
+    async function returnNearbyHotel(lat, lng) {
+
+      let center = new google.maps.LatLng(lat, lng);
+      const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places");
+
+      const request = {
+        fields: ["id", "displayName", "location", "formattedAddress", "editorialSummary", "photos", "rating"],
+        locationRestriction: {
+          center: center,
+          radius: 5000,
+        },
+        includedPrimaryTypes: ["lodging"],
+        maxResultCount: 1,
+        rankPreference: SearchNearbyRankPreference.POPULARITY,
+        language: "en-US",
+        region: "us",
+      };
+
+      const { places } = await Place.searchNearby(request);
+      if (places && places.length) {
+        return places[0];
+      } else {
+        console.log("No Hotels Found");
+        return null;
+      }
+
+    }
+
+    async function fetchNearbyPlaces(lat, lng, type = 'restaurant') {
+
+      let center = new google.maps.LatLng(lat, lng);
+      const { Place, SearchNearbyRankPreference } = await google.maps.importLibrary("places");
+
+      const request = {
+        fields: ["displayName", "location", "formattedAddress", "editorialSummary", "rating"],
+        locationRestriction: {
+          center: center,
+          radius: 3000,
+        },
+        includedPrimaryTypes: [type],
+        maxResultCount: 3,
+        rankPreference: SearchNearbyRankPreference.POPULARITY,
+        language: "en-US",
+        region: "us",
+      };
+
+      const { places } = await Place.searchNearby(request);
+      if (places.length) {
+        displayNearbyPlaces(places, lat, lng);
+      } else {
+        displayNearbyPlaces(null, lat, lng);
+      }
+    }
+
+    function clearNearbyPlaces() {
+      // Reset all buttons to inactive state
+      const buttons = document.querySelectorAll('#top-controls button');
+      buttons.forEach(button => {
+        button.classList.remove('bg-gray-300');
+      });
+      document.getElementById('info-box').style.display = 'block';
+      document.getElementById('nearby-places-container').style.display = 'none';
+      document.getElementById('places-list').innerHTML = '';
+    }
+
+    function haversine_distance(mk1, mk2) {
+      var R = 6371.0710; // Radius of the Earth in Km
+      var rlat1 = mk1.lat * (Math.PI / 180); // Convert degrees to radians
+      var rlat2 = mk2.lat * (Math.PI / 180); // Convert degrees to radians
+      var difflat = rlat2 - rlat1; // Radian difference (latitudes)
+      var difflon = (mk2.lng - mk1.lng) * (Math.PI / 180); // Radian difference (longitudes)
+
+      var d = 2 * R * Math.asin(Math.sqrt(Math.sin(difflat / 2) * Math.sin(difflat / 2) + Math.cos(rlat1) * Math.cos(rlat2) * Math.sin(difflon / 2) * Math.sin(difflon / 2)));
+      return d.toFixed(1);
+    }
+
+    async function displayNearbyPlaces(places, centerLat, centerLng) {
+      const { PinElement } = await google.maps.importLibrary("marker");
+      document.getElementById('info-box').style.display = 'none';
+      document.getElementById('nearby-places-container').style.display = 'block';
+      const placesList = document.getElementById('places-list');
+      placesList.innerHTML = '';
+
+      if (places && places.length) {
+        places.forEach((place) => {
+          let loc = place.location.toJSON();
+          let placeLat = loc.lat;
+          let placeLng = loc.lng;
+
+          const centerCords = { lat: centerLat, lng: centerLng };
+          const distanceBtw = haversine_distance(centerCords, loc);
+
+          const listItem = document.createElement('li');
+          listItem.className = 'place';
+          listItem.innerHTML = `
+          <strong>${place.displayName}</strong><br>
+          <span class="text-xs"><strong>Summary:</strong> ${place.editorialSummary || 'N/A'}</span><br>
+          <span class="text-xs"><strong>Distance:</strong> ${distanceBtw} km</span><br>
+          <span class="text-xs"><strong>Rating:</strong> ${(place.rating ? (place.rating + ' stars') : 'N/A')}</span>`;
+          placesList.appendChild(listItem);
+
+          listItem.addEventListener("mouseover", () => {
+            if (directionLine) {
+              directionLine.remove();
+              tempMarker.remove();
+            }
+            console.log('Mouseover Event!!');
+
+            const pinBackground = new PinElement({
+              background: '#0000FF',
+            });
+
+            tempMarker = new google.maps.maps3d.Marker3DInteractiveElement({
+              position: {
+                lat: placeLat,
+                lng: placeLng,
+                altitude: 100
+              },
+              label: place.displayName,
+              altitudeMode: 'RELATIVE_TO_GROUND',
+              extruded: true,
+
+            });
+            tempMarker.append(pinBackground);
+            map3DElement.append(tempMarker);
+
+            directionLine = new google.maps.maps3d.Polyline3DElement({
+              outerColor: 'blue',
+              outerWidth: 1,
+              strokeColor: 'blue',
+              strokeWidth: 12,
+              altitudeMode: "CLAMP_TO_GROUND",
+              extruded: true,
+              drawsOccludedSegments: true,
+              zIndex: 70
+            });
+
+            directionLine.coordinates = [
+              { lat: placeLat, lng: placeLng },
+              { lat: centerLat, lng: centerLng }
+            ];
+            map3DElement.append(directionLine);
+          });
+
+          listItem.addEventListener("mouseout", () => {
+            console.log('Mouseout Event!!');
+            if (directionLine) {
+
+              directionLine.remove();
+              tempMarker.remove();
+            }
+          });
+
+        });
+      } else {
+        const listItem = document.createElement('li');
+        listItem.className = 'place';
+        listItem.innerHTML = `<strong class="text-red-400 font-medium">No Results Found!</strong>`;
+        placesList.appendChild(listItem);
+      }
+    }
+
+    async function initializeHomeage() {
+      const { Map3DElement } = await google.maps.importLibrary("maps3d");
+      homepage3dMap = new Map3DElement({
+        center: { lat: 51.5167, lng: 9.9167, altitude: 6317000 },
+        range: 10000000
+      });
+      homepage3dMap.defaultLabelsDisabled = true;
+      homepage3dMap.defaultUIDisabled = true;
+
+      document.getElementById('home-map-container').appendChild(homepage3dMap);
+
+      const cameraOptions = {
+        center: { lat: 51.5167, lng: 9.9167, altitude: 6317000 },
+        range: 10000000,
+      };
+
+      homepage3dMap.flyCameraAround({
+        camera: cameraOptions,
+        durationMillis: 50000,
+        rounds: -1
+      }
+      );
+    }
+
+    async function flyCameraToHomepage(destinationText) {
+      let geocodeRequest = {
+        address: destinationText,
+        language: "en-US",
+        region: "us",
+      };
+
+      const geocoder = new google.maps.Geocoder();
+
+      await geocoder.geocode(geocodeRequest, (geocodeResults) => {
+        const citySuggested = geocodeResults[0];
+
+        console.log('citySuggested = ', citySuggested);
+        const cityGeometry = citySuggested.geometry;
+        const cityPlaceId = citySuggested.place_id;
+        cityBounds = cityGeometry.bounds;
+        const ne = cityGeometry.viewport.getNorthEast();
+        const sw = cityGeometry.viewport.getSouthWest();
+        cityLat = cityGeometry.location.lat();
+        cityLng = cityGeometry.location.lng();
+
+        // Define the polygon coordinates based on bounds
+        const countryPolygonCoords = [
+          { lat: ne.lat(), lng: sw.lng() }, // Top-left
+          { lat: ne.lat(), lng: ne.lng() }, // Top-right
+          { lat: sw.lat(), lng: ne.lng() }, // Bottom-right
+          { lat: sw.lat(), lng: sw.lng() }, // Bottom-left
+          { lat: ne.lat(), lng: sw.lng() }  // Close the loop
+        ];
+
+        console.log('countryPolygonCoords = ', countryPolygonCoords);
+
+        const cityPolygonOptions = {
+          strokeColor: 'blue',
+          fillColor: 'rgba(0, 0, 255, 0.5)',
+          strokeWidth: 4,
+          altitudeMode: "CLAMP_TO_GROUND",//ABSOLUTE,CLAMP_TO_GROUND , RELATIVE_TO_GROUND
+          extruded: true,
+          zIndex: 50
+        };
+
+        const cityPolygon = new google.maps.maps3d.Polygon3DElement(cityPolygonOptions);
+        cityPolygon.outerCoordinates = countryPolygonCoords;
+
+        homepage3dMap.append(cityPolygon);
+
+        const flyTo = {
+          center: { lat: cityLat, lng: cityLng, altitude: 631700 },
+
+        };
+
+        homepage3dMap.flyCameraTo({
+          endCamera: flyTo,
+          durationMillis: 5000,
+        });
+      });
+    }
+
+    document.getElementById('info-box-header').addEventListener('click', function () {
+      closePopup();
+      closeTheEndPopup();
+      closeInfoPopup();
+
+      const body = document.getElementById('info-box-body');
+      const chevron = document.getElementById('chevron-icon');
+
+      if (body.classList.contains('hidden')) {
+        body.classList.remove('hidden');
+        setTimeout(() => body.classList.add('expanded'), 10); // Start smooth open
+        chevron.innerHTML = '<i class="fas fa-chevron-up text-blue-600 text-xl"></i>'; // Up arrow
+        chevron.classList.add('up');
+      } else {
+        body.classList.remove('expanded');
+        setTimeout(() => body.classList.add('hidden'), 300); // Complete close
+        chevron.innerHTML = '<i class="fas fa-chevron-down text-blue-600 text-xl"></i>'; // Down arrow
+        chevron.classList.remove('up');
+      }
+    });
+    initializeHomeage();
+  </script>
+</body>
+
+</html>
